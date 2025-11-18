@@ -12,7 +12,7 @@ BATCH_SIZE = int(os.getenv("BATCH_SIZE", 100))  # récupère la valeur depuis l'
 
 consumer = KafkaConsumer(
     TOPIC,
-    bootstrap_servers="kafka:9092",
+    bootstrap_servers=['kafka1:9092', 'kafka2:9092', 'kafka3:9092'],
     auto_offset_reset="earliest",
     enable_auto_commit=True,
     group_id="telco_consumer_group",  
@@ -21,7 +21,7 @@ consumer = KafkaConsumer(
 
 
 # --- Paramètres MinIO ---
-MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "minio:9000")
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "minio1:9000")
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minio")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minio123")
 MINIO_BUCKET = os.getenv("MINIO_BUCKET", "telco-churn")
@@ -58,7 +58,7 @@ for msg in consumer:
         # Upload vers MinIO
         s3.put_object(
             Bucket=MINIO_BUCKET,
-            Key=f"batch_{batch_num}_{int(time.time())}.csv",
+            Key=f"raw/batch_{batch_num}_{int(time.time())}.csv",
             Body=csv_buffer.getvalue()
         )
         print(f"Batch {batch_num} envoyé vers MinIO ({len(batch)} messages)")
@@ -73,7 +73,7 @@ if batch:
     df_batch.to_csv(csv_buffer, index=False)
     s3.put_object(
         Bucket=MINIO_BUCKET,
-        Key=f"batch_{batch_num}_{int(time.time())}.csv",
+        Key=f"raw/batch_{batch_num}_{int(time.time())}.csv",
         Body=csv_buffer.getvalue()
     )
     time.sleep(0.1)  # Laisser un petit temps pour MinIO

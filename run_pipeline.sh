@@ -1,21 +1,31 @@
+
 #!/bin/bash
+set -e
 
-# Lancer Kafka et MinIO en arrière-plan
-docker-compose up -d kafka minio
+export CLUSTER_ID=f1a2b3c4-5678-90ab-cdef-1234567890ab
+echo "CLUSTER_ID défini : $CLUSTER_ID"
 
-# Attendre que Kafka soit prêt
-echo "Attente de Kafka..."
-while ! docker exec kafka kafka-topics --bootstrap-server kafka:9092 --list &> /dev/null; do
-    sleep 2
-done
-echo "Kafka prêt."
+echo "🚀 Démarrage du pipeline complet..."
+docker-compose up -d
 
-# Lancer le consumer
-docker-compose up -d consumer
-echo "Consumer lancé."
+echo ""
+echo "⏳ Attente de 60 secondes pour les health checks..."
+sleep 60
 
-# Lancer le producer
-docker-compose up -d producer
-echo "Producer lancé."
+echo ""
+echo "📋 Création du topic 'demo_topic'..."
+docker exec kafka1 kafka-topics \
+    --bootstrap-server kafka1:9092 \
+    --create \
+    --topic demo_topic \
+    --partitions 3 \
+    --replication-factor 3 2>/dev/null || echo "   Topic existe déjà."
 
-echo "Pipeline complet démarré !"
+echo ""
+echo "📊 Statut des services:"
+docker-compose ps
+
+echo ""
+echo "🎉 Pipeline HA complet démarré !"
+
+
