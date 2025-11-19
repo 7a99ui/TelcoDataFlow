@@ -215,42 +215,87 @@ services:
     restart: on-failure:5
 
   # -----------------------
-  # Spark Job
+  # Spark Master
   # -----------------------
-  spark:
-    build:
-      context: ./spark
-      dockerfile: Dockerfile
-    container_name: spark
-    user: root
+
+  spark-master:
+    image: apache/spark:3.5.7-scala2.12-java17-python3-ubuntu
+    container_name: spark-master
+    command:
+      - "/opt/spark/bin/spark-class"
+      - "org.apache.spark.deploy.master.Master"
+      - "--host"
+      - "spark-master"
+    environment:
+      - SPARK_NO_DAEMONIZE=true
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    restart: unless-stopped
+
+  # -----------------------
+  # Spark Worker 1
+  # -----------------------
+  spark-worker1:
+    image: apache/spark:3.5.7-scala2.12-java17-python3-ubuntu
+    container_name: spark-worker1
+    command:
+      - "/opt/spark/bin/spark-class"
+      - "org.apache.spark.deploy.worker.Worker"
+      - "spark://spark-master:7077"
+    environment:
+      - SPARK_NO_DAEMONIZE=true
     depends_on:
-      minio1:
-        condition: service_healthy
-      minio2:
-        condition: service_healthy
-      minio3:
-        condition: service_healthy
-      minio4:
-        condition: service_healthy
+      - spark-master
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
+  # -----------------------
+  # Spark Worker 2
+  # -----------------------
+  spark-worker2:
+    image: apache/spark:3.5.7-scala2.12-java17-python3-ubuntu
+    container_name: spark-worker2
+    command:
+      - "/opt/spark/bin/spark-class"
+      - "org.apache.spark.deploy.worker.Worker"
+      - "spark://spark-master:7077"
+    environment:
+      - SPARK_NO_DAEMONIZE=true
+    depends_on:
+      - spark-master
+    ports:
+      - "8082:8082"
+    restart: unless-stopped
+
+  # -----------------------
+  # Spark Notebook (Spark + Delta Lake)
+  # -----------------------
+  spark-notebook:
+    image: jupyter/pyspark-notebook:latest
+    container_name: spark-notebook
+    depends_on:
+      - spark-master
+    env_file:
+      - .env
     environment:
       - AWS_ACCESS_KEY_ID=minio
       - AWS_SECRET_ACCESS_KEY=minio123
-      - SPARK_HOME=/opt/spark
-      - IVY_HOME=/opt/ivy2
+      - SPARK_MASTER=spark://spark-master:7077
     volumes:
-      - ./spark/app:/opt/spark/app
+      - ./spark/app:/home/jovyan/work
       - spark-ivy-cache:/opt/ivy2
-    command: >
-      /opt/spark/bin/spark-submit
-      --packages io.delta:delta-spark_2.13:3.2.0,org.apache.hadoop:hadoop-aws:3.3.4
-      --conf spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension
-      --conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
-      --conf spark.hadoop.fs.s3a.endpoint=http://minio1:9000
-      --conf spark.hadoop.fs.s3a.access.key=minio
-      --conf spark.hadoop.fs.s3a.secret.key=minio123
-      --conf spark.hadoop.fs.s3a.path.style.access=true
-      --conf spark.hadoop.fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem
-      /opt/spark/app/delta_job.py
+      - spark-temp:/tmp/spark
+      - delta-data:/opt/spark/delta
+    ports:
+      - "8888:8888"
+    command:
+      - "start-notebook.sh"
+      - "--NotebookApp.token=$JUPYTER_TOKEN"
+    restart: unless-stopped
+
+
 
 volumes:
   kafka1_data:
@@ -261,3 +306,7 @@ volumes:
   minio3_data:
   minio4_data:
   spark-ivy-cache:
+  spark-temp:
+  delta-data:
+
+
