@@ -1,20 +1,21 @@
 #!/bin/bash
 set -e
 
-echo "🛑 Arrêt de Kafka pour libérer des ressources..."
-docker-compose stop kafka1 kafka2 kafka3
+echo "🛑 Arrêt de tous les conteneurs actifs du projet..."
+# Arrête tous les conteneurs actifs définis dans le docker-compose du projet
+docker-compose stop
 
 echo ""
-echo "🚀 Démarrage de Spark Master, Workers et Notebook..."
-docker-compose up -d spark-master spark-worker1 spark-worker2 spark-notebook
+echo "🚀 Démarrage de MinIO et Spark (Master, Workers, Notebook)..."
+docker-compose up -d minio1 minio2 minio3 minio4 spark-master spark-worker1 spark-worker2 spark-notebook
 
 echo ""
-echo "⏳ Attente de 30 secondes pour l'initialisation de Spark..."
+echo "⏳ Attente de 30 secondes pour l'initialisation de MinIO et Spark..."
 sleep 30
 
 echo ""
-echo "📊 Statut des services Spark :"
-docker-compose ps spark-master spark-worker1 spark-worker2 spark-notebook
+echo "📊 Statut des services MinIO et Spark :"
+docker-compose ps minio1 minio2 minio3 minio4 spark-master spark-worker1 spark-worker2 spark-notebook
 
 echo ""
-echo "🎉 Spark prêt à communiquer avec MinIO !"
+echo "🎉 MinIO et Spark sont prêts !"
